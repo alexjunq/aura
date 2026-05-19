@@ -22,7 +22,10 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users User[]
+  users          User[]
+  materials      Material[]
+  materialPrices MaterialPrice[]
+  suppliers      Supplier[]
 
   @@map("tenant")
 }
@@ -89,4 +92,106 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_token")
+}
+
+// --- Phase 2: Materials & Suppliers ---
+
+enum MaterialKind {
+  commodity
+  gemstone
+  wood
+  other
+
+  @@map("material_kind")
+}
+
+enum MaterialPriceSource {
+  manual
+  feed
+  supplier
+
+  @@map("material_price_source")
+}
+
+model Material {
+  id                  String       @id @default(cuid())
+  tenantId            String
+  name                String
+  unit                String       // free-text unit symbol: g, ct, mm, piece, m, ...
+  kind                MaterialKind @default(other)
+  commoditySymbol     String?      // required when kind = commodity (XAU/XAG/...)
+  notes               String?
+  active              Boolean      @default(true)
+  lastFeedFetchedAt   DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  prices            MaterialPrice[]
+  supplierMaterials SupplierMaterial[]
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+  @@map("material")
+}
+
+model MaterialPrice {
+  id              String              @id @default(cuid())
+  tenantId        String
+  materialId      String
+  source          MaterialPriceSource
+  supplierId      String?             // required iff source='supplier' (CHECK in migration)
+  pricePerUnit    Decimal             @db.Decimal(14, 4)
+  currency        String              // ISO 4217
+  fxRateToBase    Decimal             @db.Decimal(14, 8)
+  effectiveAt     DateTime            @default(now())
+  createdByUserId String?             // nullable for feed-sourced prices
+  createdAt       DateTime            @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  material Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([materialId, effectiveAt(sort: Desc)])
+  @@index([materialId, source, supplierId, effectiveAt(sort: Desc)])
+  @@map("material_price")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  website     String?
+  address     Json?
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierMaterials SupplierMaterial[]
+  materialPrices    MaterialPrice[]
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+  @@map("supplier")
+}
+
+model SupplierMaterial {
+  supplierId          String
+  materialId          String
+  sku                 String?
+  defaultLeadTimeDays Int?
+  createdAt           DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@id([supplierId, materialId])
+  @@index([materialId])
+  @@map("supplier_material")
 }

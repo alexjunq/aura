@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { logger } from '@aura/logger';
-import { UnauthorizedError } from './auth-context.js';
 
 export type ErrorCode =
   | 'unauthenticated'
@@ -39,6 +38,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * UnauthorizedError is thrown by `getAuthContext()` when the request lacks a
+ * usable session. It lives here (not in `auth-context.ts`) so that domain
+ * modules can catch it without dragging next-auth into their import graph —
+ * service-layer integration tests rely on that.
+ */
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('unauthenticated');
+    this.name = 'UnauthorizedError';
+  }
+}
+
 export const errors = {
   unauthenticated: () => new ApiError('unauthenticated', 'Sign in required', 401),
   forbidden: (msg = 'Forbidden') => new ApiError('forbidden', msg, 403),
@@ -52,7 +64,6 @@ export const errors = {
 
 /**
  * Single chokepoint for translating thrown errors to API responses.
- * Use in every route handler's catch block.
  */
 export function toApiErrorResponse(err: unknown): NextResponse<ApiErrorBody> {
   if (err instanceof ApiError) return err.toResponse();

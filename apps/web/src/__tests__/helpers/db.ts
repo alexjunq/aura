@@ -8,8 +8,11 @@ import { prisma } from '@aura/db';
  * Add new tables to the list when migrations introduce them.
  */
 export async function resetDb(): Promise<void> {
-  // Order matters: children before parents.
   await prisma.$transaction([
+    prisma.materialPrice.deleteMany(),
+    prisma.supplierMaterial.deleteMany(),
+    prisma.supplier.deleteMany(),
+    prisma.material.deleteMany(),
     prisma.session.deleteMany(),
     prisma.account.deleteMany(),
     prisma.verificationToken.deleteMany(),
