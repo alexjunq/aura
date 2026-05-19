@@ -1,0 +1,27 @@
+# AURA reverse proxy.
+# Two virtual hosts: the app (apex) and a `photos.` subdomain that
+# forwards directly to MinIO. The browser fetches pre-signed photo
+# URLs from `photos.<host>`; the web app and worker talk to MinIO
+# directly inside the Compose network.
+#
+# Expects two env vars (with sensible defaults):
+#   AURA_HOST            — e.g. aura.example.com
+#   AURA_PHOTOS_HOST     — e.g. photos.aura.example.com
+#
+# Caddy's automatic TLS handles both via Let's Encrypt.
+
+{$AURA_HOST} {
+	encode zstd gzip
+	reverse_proxy web:3000 {
+		health_uri /healthz
+		health_interval 30s
+	}
+}
+
+{$AURA_PHOTOS_HOST} {
+	encode zstd gzip
+	reverse_proxy minio:9000 {
+		health_uri /minio/health/ready
+		health_interval 30s
+	}
+}

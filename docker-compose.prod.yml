@@ -1,5 +1,27 @@
-## AURA — production stack skeleton.
-## Phase 9 finalizes caddy TLS + photos subdomain + backups.
+## AURA — production stack (Phase 9 finalized).
+##
+## Required env (provided via `.env` next to this file):
+##   AURA_HOST=aura.example.com
+##   AURA_PHOTOS_HOST=photos.aura.example.com
+##   POSTGRES_USER=aura
+##   POSTGRES_PASSWORD=...
+##   POSTGRES_DB=aura
+##   DATABASE_URL=postgresql://aura:...@postgres:5432/aura?schema=public
+##   NEXTAUTH_SECRET=...
+##   NEXTAUTH_URL=https://${AURA_HOST}
+##   EMAIL_PROVIDER=resend
+##   EMAIL_API_KEY=re_...
+##   EMAIL_FROM=hello@aura.example.com
+##   GOOGLE_CLIENT_ID/SECRET (optional)
+##   S3_ENDPOINT=https://${AURA_PHOTOS_HOST}
+##   S3_PUBLIC_URL=https://${AURA_PHOTOS_HOST}
+##   S3_REGION=us-east-1
+##   S3_BUCKET=aura
+##   S3_ACCESS_KEY/S3_SECRET_KEY=...  (must match MINIO_ROOT_USER/PASSWORD)
+##   COMMODITY_PROVIDER=metals_dev
+##   COMMODITY_API_KEY=...
+##   FX_PROVIDER=frankfurter
+##   RETENTION_DAYS=14
 
 services:
   caddy:
@@ -8,6 +30,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      AURA_HOST: ${AURA_HOST:?required}
+      AURA_PHOTOS_HOST: ${AURA_PHOTOS_HOST:?required}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -75,16 +100,17 @@ services:
       retries: 5
 
   backup:
-    image: postgres:16-alpine
+    build:
+      context: ./backup
     restart: unless-stopped
-    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      RETENTION_DAYS: ${RETENTION_DAYS:-14}
     volumes:
       - ./backups:/backups
-    entrypoint: >
-      /bin/sh -c "
-        echo 'Phase 9: cron + pg_dump retention land here';
-        tail -f /dev/null
-      "
     depends_on:
       postgres:
         condition: service_healthy

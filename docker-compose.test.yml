@@ -1,0 +1,70 @@
+## AURA — test stack for Playwright E2E.
+##
+## Brings up a fresh Postgres + MinIO + mailhog + the prod-build web app
+## on an isolated port range. Playwright reads AURA_E2E_BASE_URL.
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aura
+      POSTGRES_PASSWORD: aura
+      POSTGRES_DB: aura_e2e
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "aura"]
+      interval: 3s
+      retries: 30
+
+  minio-test:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: auraminio
+      MINIO_ROOT_PASSWORD: auraminio-secret
+    ports:
+      - "59000:9000"
+      - "59001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 3s
+      retries: 30
+
+  mailhog-test:
+    image: mailhog/mailhog:latest
+    ports:
+      - "51025:1025"
+      - "58025:8025"
+
+  web-test:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      minio-test:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://aura:aura@postgres-test:5432/aura_e2e?schema=public
+      NEXTAUTH_SECRET: e2e-secret-that-is-long-enough-for-validation
+      NEXTAUTH_URL: http://localhost:53000
+      EMAIL_PROVIDER: smtp
+      EMAIL_FROM: noreply@aura.test
+      EMAIL_SMTP_HOST: mailhog-test
+      EMAIL_SMTP_PORT: "1025"
+      S3_ENDPOINT: http://minio-test:9000
+      S3_PUBLIC_URL: http://localhost:59000
+      S3_REGION: us-east-1
+      S3_BUCKET: aura-e2e
+      S3_ACCESS_KEY: auraminio
+      S3_SECRET_KEY: auraminio-secret
+      S3_FORCE_PATH_STYLE: "true"
+      COMMODITY_PROVIDER: fake
+      FX_PROVIDER: fake
+      WEB_PORT: "3000"
+      WORKER_PORT: "3001"
+    ports:
+      - "53000:3000"
