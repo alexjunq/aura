@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitest/config';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Single vitest config; unit vs integration is selected via the `VITEST_SCOPE`
@@ -10,6 +12,7 @@ import { defineConfig } from 'vitest/config';
  *   `*.int.test.ts`. Requires DATABASE_URL.
  */
 const scope = process.env.VITEST_SCOPE ?? 'unit';
+const here = fileURLToPath(new URL('.', import.meta.url));
 
 const unitIncludes = ['**/__tests__/unit/**/*.test.ts', '**/*.unit.test.ts'];
 const integrationIncludes = [
@@ -18,6 +21,11 @@ const integrationIncludes = [
 ];
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@/': `${resolve(here, 'apps/web/src')}/`,
+    },
+  },
   test: {
     include: scope === 'integration' ? integrationIncludes : unitIncludes,
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],

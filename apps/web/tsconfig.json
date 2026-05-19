@@ -11,7 +11,9 @@
       "@/*": ["./src/*"]
     },
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "sourceMap": false
   },
   "include": [
     "next-env.d.ts",
