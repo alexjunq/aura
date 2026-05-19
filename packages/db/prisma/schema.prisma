@@ -1,0 +1,92 @@
+// AURA Prisma schema.
+// Phase 0: tenant, user, NextAuth tables.
+// Later phases add: material, supplier, piece, channel, buyer, sale, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One artisan's workspace. All domain rows are scoped by tenantId.
+/// v1 invariant: exactly one user per tenant; the schema permits N:1 to ease
+/// the future multi-user-per-tenant migration.
+model Tenant {
+  id               String   @id @default(cuid())
+  name             String
+  baseCurrency     String   @default("USD") // ISO 4217
+  hourlyLaborRate  Decimal  @default(0) @db.Decimal(14, 4)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users User[]
+
+  @@map("tenant")
+}
+
+/// An authenticated human. In v1 each tenant has exactly one user.
+/// Email is globally unique in v1 — this will move to (tenant_id, email) when
+/// multi-user-per-tenant ships.
+model User {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String    @unique
+  name            String?
+  hashedPassword  String?
+  emailVerified   DateTime?
+  image           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accounts Account[]
+  sessions Session[]
+
+  @@index([tenantId])
+  @@map("user")
+}
+
+// --- NextAuth (Auth.js) tables ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("account")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_token")
+}

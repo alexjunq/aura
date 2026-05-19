@@ -1,0 +1,33 @@
+{
+  "name": "@aura/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port ${WEB_PORT:-3000}",
+    "build": "next build",
+    "start": "next start --port ${WEB_PORT:-3000}",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint --dir src"
+  },
+  "dependencies": {
+    "@aura/config": "workspace:*",
+    "@aura/db": "workspace:*",
+    "@aura/domain": "workspace:*",
+    "@aura/email": "workspace:*",
+    "@aura/files": "workspace:*",
+    "@aura/logger": "workspace:*",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "typescript": "^5.7.2"
+  }
+}
