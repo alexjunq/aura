@@ -66,13 +66,13 @@ packages/
 
 ### 4.1 Auth & tenancy
 - **`tenant`** — `id`, `name`, `base_currency` (ISO 4217), `hourly_labor_rate` (decimal, base_currency), `created_at`.
-- **`user`** — `id`, `tenant_id`, `email` (unique per tenant), `name`, `hashed_password` (nullable), `email_verified_at`, `created_at`.
+- **`user`** — `id`, `tenant_id`, `email` (unique globally; v1 simplification because of 1:1 user:tenant), `name`, `hashed_password` (nullable), `email_verified_at`, `created_at`.
 - **`account`**, **`session`**, **`verification_token`** — NextAuth-owned, standard schema.
-- v1 invariant: one user per tenant. Schema permits N:1; signup enforces 1:1.
+- v1 invariant: one user per tenant. Schema permits N:1 (the FK is there); signup enforces 1:1. When multi-user-per-tenant is added, email uniqueness will need to move to `(tenant_id, email)`.
 
 ### 4.2 Materials
 - **`material`** — `id`, `name`, `unit` (g, ct, mm, piece, m, …), `kind` (`commodity` | `gemstone` | `wood` | `other`), `commodity_symbol` (nullable; e.g. `XAU`, `XAG`, `XPT` when `kind='commodity'`), `notes`, `last_feed_fetched_at` (nullable).
-- **`material_price`** — `id`, `material_id`, `source` (`manual` | `feed` | `supplier`), `supplier_id` (nullable), `price_per_unit` (decimal), `currency` (ISO), `fx_rate_to_base` (decimal, captured at write time), `effective_at`, `created_by_user_id`.
+- **`material_price`** — `id`, `material_id`, `source` (`manual` | `feed` | `supplier`), `supplier_id` (nullable; required when `source='supplier'`, null otherwise — enforced by a `CHECK` constraint), `price_per_unit` (decimal), `currency` (ISO), `fx_rate_to_base` (decimal, captured at write time), `effective_at`, `created_by_user_id` (nullable for `source='feed'`).
 - "Current price" is the latest `material_price` row per `(material_id, source, supplier_id)` at-or-before now. No mutation of past rows.
 
 ### 4.3 Suppliers
