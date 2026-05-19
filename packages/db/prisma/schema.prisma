@@ -22,10 +22,13 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users          User[]
-  materials      Material[]
-  materialPrices MaterialPrice[]
-  suppliers      Supplier[]
+  users              User[]
+  materials          Material[]
+  materialPrices     MaterialPrice[]
+  suppliers          Supplier[]
+  pieces             Piece[]
+  workSessions       WorkSession[]
+  pieceStatusHistory PieceStatusHistory[]
 
   @@map("tenant")
 }
@@ -129,6 +132,7 @@ model Material {
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   prices            MaterialPrice[]
   supplierMaterials SupplierMaterial[]
+  pieceMaterials    PieceMaterial[]
 
   @@index([tenantId])
   @@index([tenantId, active])
@@ -194,4 +198,99 @@ model SupplierMaterial {
   @@id([supplierId, materialId])
   @@index([materialId])
   @@map("supplier_material")
+}
+
+// --- Phase 3: Pieces, work sessions, status history ---
+
+enum PieceStatus {
+  in_progress
+  in_studio
+  reserved
+  on_sale
+  sold
+  returned
+  lost_damaged
+
+  @@map("piece_status")
+}
+
+model Piece {
+  id                  String      @id @default(cuid())
+  tenantId            String
+  title               String
+  slug                String
+  description         String?
+  category            String?
+  status              PieceStatus @default(in_progress)
+  // Free-form studio location label (e.g. "Shelf B").
+  // Channel context comes from piece_status_history; never on the row.
+  currentLocationText String?
+  primaryPhotoKey     String?
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  materials     PieceMaterial[]
+  workSessions  WorkSession[]
+  statusHistory PieceStatusHistory[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("piece")
+}
+
+model PieceMaterial {
+  pieceId              String
+  materialId           String
+  quantity             Decimal  @db.Decimal(14, 4)
+  // Frozen at the moment the material was added; historical cost stable.
+  capturedPricePerUnit Decimal  @db.Decimal(14, 4) // in base currency
+  capturedAt           DateTime @default(now())
+
+  piece    Piece    @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@id([pieceId, materialId])
+  @@index([pieceId])
+  @@index([materialId])
+  @@map("piece_material")
+}
+
+model WorkSession {
+  id              String    @id @default(cuid())
+  tenantId        String
+  pieceId         String
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int?
+  note            String?
+  createdAt       DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  piece  Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([pieceId])
+  @@map("work_session")
+}
+
+model PieceStatusHistory {
+  id         String      @id @default(cuid())
+  tenantId   String
+  pieceId    String
+  fromStatus PieceStatus
+  toStatus   PieceStatus
+  changedAt  DateTime    @default(now())
+  userId     String?
+  context    Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  piece  Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+  @@index([pieceId, changedAt(sort: Desc)])
+  @@map("piece_status_history")
 }
