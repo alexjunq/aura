@@ -148,7 +148,13 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: buildAdapter(),
-  session: { strategy: 'database' },
+  // JWT, not database, because Auth.js v5's Credentials provider only works
+  // with JWT sessions — it never calls adapter.createSession(). With strategy:
+  // 'database' configured, a successful credentials authorize() returned
+  // without persisting a session, the cookie stayed empty, and the user got
+  // bounced back to /signin. The PrismaAdapter still owns the User/Account/
+  // VerificationToken tables; only session storage moves into a signed cookie.
+  session: { strategy: 'jwt' },
   secret: env.NEXTAUTH_SECRET,
   trustHost: true,
   providers,
@@ -158,17 +164,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/signin?error',
   },
   callbacks: {
-    async session({ session, user }) {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { tenantId: true },
-      });
-      if (!dbUser) {
-        logger.warn({ userId: user.id }, 'session: user has no tenant');
-        return session;
+    async jwt({ token, user }) {
+      // `user` is only present on the first call (immediately after
+      // sign-in). On subsequent calls only `token` is given. Stamp the
+      // tenantId onto the token the first time so the session callback
+      // can hand it back without a DB hit.
+      if (user) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id! },
+          select: { tenantId: true },
+        });
+        if (dbUser) {
+          token.userId = user.id;
+          token.tenantId = dbUser.tenantId;
+        } else {
+          logger.warn({ userId: user.id }, 'jwt: user has no tenant');
+        }
       }
-      session.user.id = user.id;
-      session.user.tenantId = dbUser.tenantId;
+      return token;
+    },
+    async session({ session, token }) {
+      if (token.userId) session.user.id = token.userId as string;
+      if (token.tenantId) session.user.tenantId = token.tenantId as string;
       return session;
     },
   },
