@@ -12,6 +12,7 @@ export async function resetDb(): Promise<void> {
     prisma.workSession.deleteMany(),
     prisma.pieceMaterial.deleteMany(),
     prisma.piece.deleteMany(),
+    prisma.salesChannel.deleteMany(),
     prisma.materialPrice.deleteMany(),
     prisma.supplierMaterial.deleteMany(),
     prisma.supplier.deleteMany(),

@@ -2,10 +2,12 @@ import { redirect, notFound } from 'next/navigation';
 import { tryGetAuthContext } from '@/shared/auth-context';
 import * as pieces from '@/modules/pieces/service';
 import * as materials from '@/modules/materials/service';
+import * as channelsService from '@/modules/channels/service';
 import { PageShell, tableStyle, tdStyle, thStyle } from '@/shared/layout';
 import { TimerControls } from './TimerControls';
 import { AddMaterialForm } from './AddMaterialForm';
 import { StatusActions } from './StatusActions';
+import { ChannelActions } from './ChannelActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,16 +30,25 @@ export default async function PieceDetailPage({ params }: Params) {
     throw err;
   }
 
-  const [pieceMaterials, sessions, history, totalSec, allMaterials, activeSession, costBase] =
-    await Promise.all([
-      pieces.listMaterials(ctx.tenantId, id),
-      pieces.listSessions(ctx.tenantId, id),
-      pieces.statusHistory(ctx.tenantId, id),
-      pieces.totalSessionSeconds(ctx.tenantId, id),
-      materials.list(ctx.tenantId),
-      pieces.activeSession(ctx.tenantId),
-      pieces.materialsCostBase(ctx.tenantId, id),
-    ]);
+  const [
+    pieceMaterials,
+    sessions,
+    history,
+    totalSec,
+    allMaterials,
+    allChannels,
+    activeSession,
+    costBase,
+  ] = await Promise.all([
+    pieces.listMaterials(ctx.tenantId, id),
+    pieces.listSessions(ctx.tenantId, id),
+    pieces.statusHistory(ctx.tenantId, id),
+    pieces.totalSessionSeconds(ctx.tenantId, id),
+    materials.list(ctx.tenantId),
+    channelsService.list(ctx.tenantId),
+    pieces.activeSession(ctx.tenantId),
+    pieces.materialsCostBase(ctx.tenantId, id),
+  ]);
   const totalHours = (totalSec / 3600).toFixed(2);
 
   return (
@@ -45,6 +56,22 @@ export default async function PieceDetailPage({ params }: Params) {
       <section style={section}>
         <h2 style={h2}>Status</h2>
         <StatusActions piece={piece} />
+        {(piece.status === 'in_studio' ||
+          piece.status === 'on_sale' ||
+          piece.status === 'reserved') && (
+          <div style={{ marginTop: '0.8rem' }}>
+            <ChannelActions
+              pieceId={piece.id}
+              channels={allChannels.map((c) => ({
+                id: c.id,
+                name: c.name,
+                commissionPct: c.commissionPct,
+              }))}
+              showOnSale={piece.status !== 'on_sale'}
+              showReserve={piece.status !== 'reserved'}
+            />
+          </div>
+        )}
       </section>
 
       <section style={section}>

@@ -29,6 +29,7 @@ model Tenant {
   pieces             Piece[]
   workSessions       WorkSession[]
   pieceStatusHistory PieceStatusHistory[]
+  salesChannels      SalesChannel[]
 
   @@map("tenant")
 }
@@ -293,4 +294,37 @@ model PieceStatusHistory {
   @@index([pieceId])
   @@index([pieceId, changedAt(sort: Desc)])
   @@map("piece_status_history")
+}
+
+// --- Phase 4: Sales channels ---
+
+enum SalesChannelType {
+  online
+  physical_store
+  event
+  direct
+
+  @@map("sales_channel_type")
+}
+
+model SalesChannel {
+  id            String           @id @default(cuid())
+  tenantId      String
+  name          String
+  type          SalesChannelType @default(direct)
+  commissionPct Decimal          @default(0) @db.Decimal(5, 2) // 0–100
+  contactName   String?
+  email         String?
+  phone         String?
+  address       Json?
+  notes         String?
+  active        Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+  @@map("sales_channel")
 }

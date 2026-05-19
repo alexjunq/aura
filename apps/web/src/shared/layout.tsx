@@ -51,6 +51,7 @@ export async function PageShell({
             <a href="/pieces">Pieces</a>
             <a href="/materials">Materials</a>
             <a href="/suppliers">Suppliers</a>
+            <a href="/channels">Channels</a>
             <a href="/settings">Settings</a>
           </nav>
           <h1 style={{ margin: 0 }}>{title}</h1>
