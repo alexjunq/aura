@@ -220,7 +220,7 @@ describe('pricing — breakdown (Flow D)', () => {
       pricePerUnit: '60', currency: 'USD', fxRateToBase: '1', effectiveAt: new Date(),
     });
     const piece = await pieces.create(tenantId, { title: 'Ring' });
-    await pieces.addMaterial(tenantId, piece.id, { materialId: m.id, quantity: '2' });
+    await pieces.addMaterial(tenantId, userId, piece.id, { materialId: m.id, quantity: '2' });
     // Add a manual session: 1 hour.
     await pieces.recordSession(tenantId, piece.id, {
       startedAt: new Date('2026-01-01T10:00:00Z'),
@@ -248,7 +248,7 @@ describe('pricing — breakdown (Flow D)', () => {
       effectiveAt: new Date('2026-01-01T00:00:00Z'),
     });
     const piece = await pieces.create(tenantId, { title: 'Ring' });
-    await pieces.addMaterial(tenantId, piece.id, { materialId: m.id, quantity: '10' });
+    await pieces.addMaterial(tenantId, userId, piece.id, { materialId: m.id, quantity: '10' });
 
     // Price doubles after the material was added.
     await materials.recordManualPrice(tenantId, m.id, userId, {

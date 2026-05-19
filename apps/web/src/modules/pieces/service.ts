@@ -147,6 +147,7 @@ export async function listMaterials(
  */
 export async function addMaterial(
   tenantId: string,
+  userId: string,
   pieceId: string,
   input: AddMaterialInput,
 ): Promise<PieceMaterialRow> {
@@ -175,6 +176,7 @@ export async function addMaterial(
     input.materialId,
     input.quantity,
     priceInBase,
+    userId,
   );
   if (!row) throw errors.notFound('material not found in tenant');
   return row;

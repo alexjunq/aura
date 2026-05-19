@@ -118,7 +118,7 @@ describe('pieces — material snapshot pricing', () => {
     });
 
     const piece = await pieces.create(tenantId, { title: 'Ring' });
-    const pm = await pieces.addMaterial(tenantId, piece.id, { materialId: m.id, quantity: '2' });
+    const pm = await pieces.addMaterial(tenantId, userId, piece.id, { materialId: m.id, quantity: '2' });
     expect(pm.capturedPricePerUnit).toBe('60');
 
     // Update material price upward; piece's captured price should be unchanged.
@@ -141,7 +141,7 @@ describe('pieces — material snapshot pricing', () => {
     const piece = await pieces.create(tenantId, { title: 'X' });
     await pieces.transitionStatus(tenantId, userId, piece.id, { to: 'in_studio' });
     await expect(
-      pieces.addMaterial(tenantId, piece.id, { materialId: m.id, quantity: '1' }),
+      pieces.addMaterial(tenantId, userId, piece.id, { materialId: m.id, quantity: '1' }),
     ).rejects.toMatchObject({ code: 'illegal_transition' });
   });
 });

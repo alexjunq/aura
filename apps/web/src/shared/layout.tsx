@@ -50,6 +50,7 @@ export async function PageShell({
             <a href="/">Home</a>
             <a href="/pieces">Pieces</a>
             <a href="/materials">Materials</a>
+            <a href="/inventory">Inventory</a>
             <a href="/suppliers">Suppliers</a>
             <a href="/channels">Channels</a>
             <a href="/buyers">Buyers</a>

@@ -9,6 +9,7 @@ import * as channels from '@/modules/channels/service';
 import * as buyers from '@/modules/buyers/service';
 import * as sales from '@/modules/sales/service';
 import * as reports from '@/modules/reports/service';
+import * as inventory from '@/modules/inventory/service';
 import { PageShell } from '@/shared/layout';
 import { SignOutButton } from './SignOutButton';
 
@@ -32,6 +33,7 @@ export default async function HomePage() {
     allBuyers,
     recentSales,
     monthRevenue,
+    inventoryReport,
   ] = await Promise.all([
     settings.getSettings(ctx.tenantId),
     pieces.list(ctx.tenantId, { limit: 200 }),
@@ -41,7 +43,10 @@ export default async function HomePage() {
     buyers.list(ctx.tenantId, { limit: 500 }),
     sales.list(ctx.tenantId, { limit: 5 }),
     reports.revenue(ctx.tenantId, { groupBy: 'month', from: monthStart }),
+    inventory.currentInventory(ctx.tenantId),
   ]);
+
+  const inventoryLow = inventoryReport.filter((r) => Number(r.onHand) < 0).length;
 
   // Aggregate piece counts by status.
   const pieceCount = allPieces.length;
@@ -79,6 +84,11 @@ export default async function HomePage() {
             href="/reports"
           />
           <Kpi label="Materials" value={allMaterials.length} href="/materials" />
+          <Kpi
+            label={inventoryLow > 0 ? `Inventory · ${inventoryLow} negative` : 'Inventory'}
+            value={inventoryReport.length}
+            href="/inventory"
+          />
           <Kpi label="Suppliers" value={allSuppliers.length} href="/suppliers" />
           <Kpi label="Channels" value={allChannels.length} href="/channels" />
           <Kpi label="Buyers" value={allBuyers.length} href="/buyers" />
@@ -101,6 +111,14 @@ export default async function HomePage() {
             title="Materials"
             blurb="Gold, silver, gemstones, wood — whatever you use. Manual prices, commodity feeds, supplier prices."
             cta="Open materials"
+          />
+          <Tile
+            href="/inventory"
+            title="Inventory"
+            blurb="Raw material stock on hand. Record purchases (supplier + cost) to stock up; usage decrements automatically when materials are added to pieces."
+            cta="Open inventory"
+            secondaryHref="/inventory"
+            secondaryCta="+ buy materials"
           />
           <Tile
             href="/suppliers"

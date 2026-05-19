@@ -1,6 +1,7 @@
 import { prisma } from '@aura/db';
 import type { PieceStatus } from '@aura/domain';
 import type { Prisma } from '@aura/db';
+import * as inventoryRepo from '@/modules/inventory/repo';
 
 export interface PieceRow {
   id: string;
@@ -242,40 +243,56 @@ export async function addPieceMaterial(
   materialId: string,
   quantity: string,
   capturedPricePerUnitBase: string,
+  userId: string,
 ): Promise<PieceMaterialRow | null> {
-  const [piece, material] = await Promise.all([
-    prisma.piece.findFirst({ where: { id: pieceId, tenantId }, select: { id: true } }),
-    prisma.material.findFirst({
-      where: { id: materialId, tenantId },
-      select: { id: true, name: true, unit: true },
-    }),
-  ]);
-  if (!piece || !material) return null;
+  // Single transaction so the piece_material row + the corresponding
+  // inventory usage movement (stock decrement) stay in sync.
+  return prisma.$transaction(async (tx) => {
+    const [piece, material] = await Promise.all([
+      tx.piece.findFirst({ where: { id: pieceId, tenantId }, select: { id: true } }),
+      tx.material.findFirst({
+        where: { id: materialId, tenantId },
+        select: { id: true, name: true, unit: true },
+      }),
+    ]);
+    if (!piece || !material) return null;
 
-  const row = await prisma.pieceMaterial.upsert({
-    where: { pieceId_materialId: { pieceId, materialId } },
-    create: {
+    const row = await tx.pieceMaterial.upsert({
+      where: { pieceId_materialId: { pieceId, materialId } },
+      create: {
+        pieceId,
+        materialId,
+        quantity,
+        capturedPricePerUnit: capturedPricePerUnitBase,
+      },
+      update: {
+        quantity,
+        capturedPricePerUnit: capturedPricePerUnitBase,
+        capturedAt: new Date(),
+      },
+    });
+
+    // Mirror usage in the inventory ledger. Upsert (one row per
+    // piece × material) so re-adding a material updates the row instead
+    // of stacking duplicates.
+    await inventoryRepo.upsertUsageMovement(tx, {
+      tenantId,
       pieceId,
       materialId,
       quantity,
-      capturedPricePerUnit: capturedPricePerUnitBase,
-    },
-    update: {
-      quantity,
-      capturedPricePerUnit: capturedPricePerUnitBase,
-      capturedAt: new Date(),
-    },
-  });
+      userId,
+    });
 
-  return {
-    pieceId,
-    materialId,
-    materialName: material.name,
-    materialUnit: material.unit,
-    quantity: row.quantity.toString(),
-    capturedPricePerUnit: row.capturedPricePerUnit.toString(),
-    capturedAt: row.capturedAt,
-  };
+    return {
+      pieceId,
+      materialId,
+      materialName: material.name,
+      materialUnit: material.unit,
+      quantity: row.quantity.toString(),
+      capturedPricePerUnit: row.capturedPricePerUnit.toString(),
+      capturedAt: row.capturedAt,
+    };
+  });
 }
 
 export async function removePieceMaterial(
@@ -283,15 +300,20 @@ export async function removePieceMaterial(
   pieceId: string,
   materialId: string,
 ): Promise<boolean> {
-  const piece = await prisma.piece.findFirst({
-    where: { id: pieceId, tenantId },
-    select: { id: true },
+  return prisma.$transaction(async (tx) => {
+    const piece = await tx.piece.findFirst({
+      where: { id: pieceId, tenantId },
+      select: { id: true },
+    });
+    if (!piece) return false;
+    const r = await tx.pieceMaterial.deleteMany({
+      where: { pieceId, materialId },
+    });
+    if (r.count === 0) return false;
+    // Reverse the inventory usage row too — stock returns.
+    await inventoryRepo.deleteUsageMovement(tx, { tenantId, pieceId, materialId });
+    return true;
   });
-  if (!piece) return false;
-  const r = await prisma.pieceMaterial.deleteMany({
-    where: { pieceId, materialId },
-  });
-  return r.count > 0;
 }
 
 // --- Work sessions ---

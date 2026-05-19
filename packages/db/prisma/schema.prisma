@@ -31,8 +31,9 @@ model Tenant {
   pieceStatusHistory PieceStatusHistory[]
   sales              Sale[]
   salesChannels      SalesChannel[]
-  buyers             Buyer[]
-  buyerInteractions  BuyerInteraction[]
+  buyers              Buyer[]
+  buyerInteractions   BuyerInteraction[]
+  inventoryMovements  InventoryMovement[]
 
   @@map("tenant")
 }
@@ -133,10 +134,11 @@ model Material {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  prices            MaterialPrice[]
-  supplierMaterials SupplierMaterial[]
-  pieceMaterials    PieceMaterial[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  prices             MaterialPrice[]
+  supplierMaterials  SupplierMaterial[]
+  pieceMaterials     PieceMaterial[]
+  inventoryMovements InventoryMovement[]
 
   @@index([tenantId])
   @@index([tenantId, active])
@@ -180,9 +182,10 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplierMaterials SupplierMaterial[]
-  materialPrices    MaterialPrice[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierMaterials  SupplierMaterial[]
+  materialPrices     MaterialPrice[]
+  inventoryMovements InventoryMovement[]
 
   @@index([tenantId])
   @@index([tenantId, active])
@@ -235,11 +238,12 @@ model Piece {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
-  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  materials     PieceMaterial[]
-  workSessions  WorkSession[]
-  statusHistory PieceStatusHistory[]
-  sales         Sale[]
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  materials          PieceMaterial[]
+  workSessions       WorkSession[]
+  statusHistory      PieceStatusHistory[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -417,4 +421,52 @@ model Sale {
   @@index([buyerId, soldAt(sort: Desc)])
   @@index([channelId, soldAt(sort: Desc)])
   @@map("sale")
+}
+
+// --- Inventory: stock-on-hand movements ---
+
+enum InventoryMovementKind {
+  purchase
+  usage
+  adjustment
+
+  @@map("inventory_movement_kind")
+}
+
+/// Append-only movement log. `quantity` is signed: positive for incoming
+/// (purchase, adjustment-up), negative for outgoing (usage, adjustment-down).
+/// Stock on hand = SUM(quantity) per (tenantId, materialId).
+///
+/// Invariants enforced by a CHECK constraint in the migration:
+///   - kind='purchase'   : quantity > 0, supplierId/unitCost/currency/fxRateToBase NOT NULL
+///   - kind='usage'      : quantity < 0, pieceId NOT NULL
+///   - kind='adjustment' : quantity != 0
+model InventoryMovement {
+  id              String                @id @default(cuid())
+  tenantId        String
+  materialId      String
+  kind            InventoryMovementKind
+  quantity        Decimal               @db.Decimal(14, 4)
+  // Purchase-only:
+  supplierId      String?
+  unitCost        Decimal?              @db.Decimal(14, 4)
+  currency        String?               // ISO 4217
+  fxRateToBase    Decimal?              @db.Decimal(14, 8)
+  // Usage-only (links the movement to the piece it was used on):
+  pieceId         String?
+  reference       String?               // free-text: PO #, invoice #, reason for adjustment
+  occurredAt      DateTime              @default(now())
+  createdByUserId String?
+  createdAt       DateTime              @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  material Material  @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  piece    Piece?    @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, materialId, occurredAt(sort: Desc)])
+  @@index([tenantId, occurredAt(sort: Desc)])
+  // One usage row per (piece, material); upsert-safe.
+  @@unique([pieceId, materialId, kind], name: "one_usage_per_piece_material")
+  @@map("inventory_movement")
 }
