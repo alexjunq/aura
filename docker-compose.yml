@@ -63,6 +63,72 @@ services:
       timeout: 3s
       retries: 5
 
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     AURA_HOST: aura
+  #     AURA_PHOTOS_HOST: photos.aura
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  #   depends_on:
+  #     - web
+  #     - minio
+
+
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/web/Dockerfile
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     minio:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/healthz"]
+  #     interval: 15s
+  #     retries: 5
+
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/worker/Dockerfile
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/healthz"]
+  #     interval: 15s
+  #     retries: 5
+
+  # backup:
+  #   build:
+  #     context: ./backup
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     RETENTION_DAYS: ${RETENTION_DAYS:-14}
+  #   volumes:
+  #     - ./backups:/backups
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
 volumes:
   postgres-data:
   minio-data:
+  # caddy-data:
+  # caddy-config:

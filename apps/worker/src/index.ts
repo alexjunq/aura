@@ -1,3 +1,7 @@
+// Must come first — populates process.env from the workspace-root .env
+// before any other module reads it.
+import './load-env.js';
+
 import { loadEnv } from '@aura/config';
 import { logger } from '@aura/logger';
 import { startHealthServer } from './health-server.js';

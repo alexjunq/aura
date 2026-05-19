@@ -126,6 +126,9 @@ importers:
       '@aura/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       node-cron:
         specifier: ^3.0.3
         version: 3.0.3

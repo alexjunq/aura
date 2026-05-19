@@ -16,6 +16,7 @@
     "@aura/db": "workspace:*",
     "@aura/domain": "workspace:*",
     "@aura/logger": "workspace:*",
+    "dotenv": "^17.4.2",
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
