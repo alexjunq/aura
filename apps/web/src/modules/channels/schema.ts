@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-export const channelTypeSchema = z.enum(['online', 'physical_store', 'event', 'direct']);
+export const channelTypeSchema = z.enum([
+  'online',
+  'physical_store',
+  'event',
+  'direct',
+  'reseller',
+]);
 
 const commissionPct = z
   .union([z.number(), z.string()])

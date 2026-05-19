@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 export function NewChannelForm() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [type, setType] = useState<'online' | 'physical_store' | 'event' | 'direct'>('online');
+  const [type, setType] = useState<
+    'online' | 'physical_store' | 'event' | 'direct' | 'reseller'
+  >('online');
   const [commissionPct, setCommissionPct] = useState('0');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +57,7 @@ export function NewChannelForm() {
           <option value="physical_store">physical_store</option>
           <option value="event">event</option>
           <option value="direct">direct</option>
+          <option value="reseller">reseller</option>
         </select>
       </label>
       <label style={fieldStyle}>

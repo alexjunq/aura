@@ -307,6 +307,7 @@ enum SalesChannelType {
   physical_store
   event
   direct
+  reseller
 
   @@map("sales_channel_type")
 }
