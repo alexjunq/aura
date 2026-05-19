@@ -30,6 +30,8 @@ model Tenant {
   workSessions       WorkSession[]
   pieceStatusHistory PieceStatusHistory[]
   salesChannels      SalesChannel[]
+  buyers             Buyer[]
+  buyerInteractions  BuyerInteraction[]
 
   @@map("tenant")
 }
@@ -327,4 +329,56 @@ model SalesChannel {
   @@index([tenantId])
   @@index([tenantId, active])
   @@map("sales_channel")
+}
+
+// --- Phase 5: Buyers & interactions ---
+
+enum BuyerInteractionKind {
+  meeting
+  message
+  inquiry
+  note
+  other
+
+  @@map("buyer_interaction_kind")
+}
+
+model Buyer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String?
+  phone     String?
+  instagram String?
+  birthdate DateTime? @db.Date
+  address   Json?
+  interests String[]
+  notes     String?
+  retiredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  interactions BuyerInteraction[]
+
+  @@index([tenantId])
+  @@index([tenantId, retiredAt])
+  @@map("buyer")
+}
+
+model BuyerInteraction {
+  id              String               @id @default(cuid())
+  tenantId        String
+  buyerId         String
+  occurredAt      DateTime
+  kind            BuyerInteractionKind @default(note)
+  summary         String
+  createdByUserId String?
+  createdAt       DateTime             @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buyer  Buyer  @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId, occurredAt(sort: Desc)])
+  @@map("buyer_interaction")
 }

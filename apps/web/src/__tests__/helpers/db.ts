@@ -8,6 +8,8 @@ import { prisma } from '@aura/db';
  */
 export async function resetDb(): Promise<void> {
   await prisma.$transaction([
+    prisma.buyerInteraction.deleteMany(),
+    prisma.buyer.deleteMany(),
     prisma.pieceStatusHistory.deleteMany(),
     prisma.workSession.deleteMany(),
     prisma.pieceMaterial.deleteMany(),
