@@ -1,4 +1,4 @@
-import { addMoney, mulMoney, toBase } from '@aura/domain';
+import { addMoney, mulMoney, secondsToHours, toBase } from '@aura/domain';
 import * as pieces from '@/modules/pieces/service';
 import * as materials from '@/modules/materials/service';
 import * as settings from '@/modules/settings/service';
@@ -36,12 +36,6 @@ export interface CostBreakdown {
   /** What the material cost *would* be if we used current prices instead of
    *  the snapshotted ones — useful for "drift since I added these materials". */
   atCurrentPrices: AtCurrentPrices;
-}
-
-function secondsToHours(sec: number): string {
-  // Hours with 4 dp.
-  const hours = sec / 3600;
-  return (Math.round(hours * 10_000) / 10_000).toString();
 }
 
 /**

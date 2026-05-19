@@ -5,6 +5,7 @@ import {
   formatMoney,
   mulMoney,
   parseMoney,
+  secondsToHours,
   subMoney,
   toBase,
 } from '../../money.js';
@@ -75,5 +76,27 @@ describe('applyPercent', () => {
 
   it('computes 0% of any amount', () => {
     expect(applyPercent('1234.56', '0')).toBe('0.0000');
+  });
+});
+
+describe('secondsToHours', () => {
+  it('rounds 7 seconds to 4dp so parseMoney accepts the result', () => {
+    // The bug that motivated this helper: 7 / 3600 = 0.0019444444444444444
+    // (way more than 4 fractional digits) → parseMoney rejects it.
+    expect(secondsToHours(7)).toBe('0.0019');
+    expect(() => parseMoney(secondsToHours(7))).not.toThrow();
+  });
+
+  it('returns 0 for 0 seconds', () => {
+    expect(secondsToHours(0)).toBe('0');
+  });
+
+  it('returns 1 for a full hour', () => {
+    expect(secondsToHours(3600)).toBe('1');
+  });
+
+  it('handles fractional hours cleanly', () => {
+    // 30 minutes = 0.5 h.
+    expect(secondsToHours(1800)).toBe('0.5');
   });
 });

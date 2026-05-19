@@ -1,5 +1,5 @@
 import { prisma } from '@aura/db';
-import { addMoney, mulMoney, toBase } from '@aura/domain';
+import { addMoney, mulMoney, secondsToHours, toBase } from '@aura/domain';
 import * as pieces from '@/modules/pieces/service';
 import type {
   InventoryQuery,
@@ -179,8 +179,9 @@ export async function margin(
 
     const materialsCostBase = await pieces.materialsCostBase(tenantId, s.pieceId);
     const totalSec = await pieces.totalSessionSeconds(tenantId, s.pieceId);
-    const hours = (totalSec / 3600).toString();
-    const laborCostBase = mulMoney(hourly, hours);
+    // secondsToHours rounds to MONEY_SCALE (4) fractional digits, which
+    // `mulMoney`'s `parseMoney(factor)` step requires.
+    const laborCostBase = mulMoney(hourly, secondsToHours(totalSec));
     const totalCostBase = addMoney(materialsCostBase, laborCostBase);
 
     const marginBase = subtract(netRevenueBase, totalCostBase);

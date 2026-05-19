@@ -92,3 +92,15 @@ export function applyPercent(amount: MoneyString, pct: MoneyString | number): Mo
   const factor = mulMoney(typeof pct === 'number' ? pct.toString() : pct, '0.01');
   return mulMoney(amount, factor);
 }
+
+/**
+ * Convert seconds → hours as a money-compatible decimal string (≤ 4 fractional
+ * digits). Plain `(sec / 3600).toString()` yields floats like
+ * `0.0019444444444444444` that `parseMoney` rejects; this rounds to MONEY_SCALE
+ * up front so the result is always safe to pass to `mulMoney`.
+ */
+export function secondsToHours(sec: number): MoneyString {
+  const hours = sec / 3600;
+  const scaled = Math.round(hours * Number(MONEY_SCALE_FACTOR)) / Number(MONEY_SCALE_FACTOR);
+  return scaled.toString();
+}

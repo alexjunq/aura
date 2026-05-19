@@ -119,6 +119,44 @@ describe('reports — inventory', () => {
   });
 });
 
+describe('reports — margin', () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+  afterAll(async () => {
+    await disconnect();
+  });
+
+  it('handles work sessions with non-round-hours durations (regression: 7s would explode parseMoney)', async () => {
+    const f = await setupFixture('mg');
+    // Make a piece, log a 7-second session against it, then sell it.
+    // 7 / 3600 = 0.0019444444444444444 — more than 4 fractional digits, which
+    // is what caused the crash in mulMoney → parseMoney before secondsToHours
+    // started rounding to MONEY_SCALE.
+    const piece = await pieces.create(f.tenantId, { title: 'Tiny labor' });
+    await pieces.transitionStatus(f.tenantId, f.userId, piece.id, { to: 'in_studio' });
+    await pieces.recordSession(f.tenantId, piece.id, {
+      startedAt: new Date('2026-03-01T10:00:00Z'),
+      endedAt: new Date('2026-03-01T10:00:07Z'),
+      note: null,
+    });
+    await sales.recordSale(f.tenantId, f.userId, {
+      pieceId: piece.id,
+      buyerId: f.buyer1Id,
+      channelId: f.channelId,
+      salePrice: '100',
+      currency: 'USD',
+      fxRateToBase: '1',
+      soldAt: new Date('2026-03-01T11:00:00Z'),
+    });
+
+    // Should not throw. Labor cost = 30/h × 0.0019h = $0.057 → '0.0570'.
+    const rows = await reports.margin(f.tenantId, {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.laborCostBase).toBe('0.0570');
+  });
+});
+
 describe('reports — CSV round-trip', () => {
   beforeEach(async () => {
     await resetDb();
