@@ -74,14 +74,39 @@ const providers: NextAuthConfig['providers'] = [
       password: { label: 'Password', type: 'password' },
     },
     async authorize(raw) {
+      // Auth.js wraps any null return from this function in a generic
+      // `CredentialsSignin` error and logs it without context. Returning a
+      // structured `reason` in the logs (dev only) makes the actual cause
+      // — bad input shape, missing user, OAuth-only user, wrong password —
+      // diagnosable. The function still returns null in every case so the
+      // wire response stays "invalid credentials" regardless of reason.
       const parsed = credentialsSchema.safeParse(raw);
-      if (!parsed.success) return null;
-      const user = await prisma.user.findUnique({
-        where: { email: parsed.data.email.toLowerCase() },
-      });
-      if (!user?.hashedPassword) return null;
+      if (!parsed.success) {
+        logger.warn(
+          { reason: 'invalid_input', issues: parsed.error.issues },
+          'credentials sign-in rejected',
+        );
+        return null;
+      }
+      const email = parsed.data.email.toLowerCase();
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        logger.warn({ reason: 'user_not_found', email }, 'credentials sign-in rejected');
+        return null;
+      }
+      if (!user.hashedPassword) {
+        logger.warn(
+          { reason: 'no_password_set', email, userId: user.id },
+          'credentials sign-in rejected (user signed up via OAuth/magic link only)',
+        );
+        return null;
+      }
       const ok = await compare(parsed.data.password, user.hashedPassword);
-      if (!ok) return null;
+      if (!ok) {
+        logger.warn({ reason: 'wrong_password', email, userId: user.id }, 'credentials sign-in rejected');
+        return null;
+      }
+      logger.info({ userId: user.id, email }, 'credentials sign-in succeeded');
       return {
         id: user.id,
         email: user.email,
