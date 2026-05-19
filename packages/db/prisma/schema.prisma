@@ -29,6 +29,7 @@ model Tenant {
   pieces             Piece[]
   workSessions       WorkSession[]
   pieceStatusHistory PieceStatusHistory[]
+  sales              Sale[]
   salesChannels      SalesChannel[]
   buyers             Buyer[]
   buyerInteractions  BuyerInteraction[]
@@ -238,6 +239,7 @@ model Piece {
   materials     PieceMaterial[]
   workSessions  WorkSession[]
   statusHistory PieceStatusHistory[]
+  sales         Sale[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -325,6 +327,7 @@ model SalesChannel {
   updatedAt     DateTime         @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales  Sale[]
 
   @@index([tenantId])
   @@index([tenantId, active])
@@ -360,6 +363,7 @@ model Buyer {
 
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   interactions BuyerInteraction[]
+  sales        Sale[]
 
   @@index([tenantId])
   @@index([tenantId, retiredAt])
@@ -381,4 +385,35 @@ model BuyerInteraction {
 
   @@index([buyerId, occurredAt(sort: Desc)])
   @@map("buyer_interaction")
+}
+
+// --- Phase 6: Sales ---
+
+model Sale {
+  id                     String    @id @default(cuid())
+  tenantId               String
+  pieceId                String
+  buyerId                String
+  channelId              String
+  salePrice              Decimal   @db.Decimal(14, 4)
+  currency               String
+  fxRateToBase           Decimal   @db.Decimal(14, 8)
+  commissionPctSnapshot  Decimal   @db.Decimal(5, 2)
+  commissionAmount       Decimal   @db.Decimal(14, 4)
+  netAmount              Decimal   @db.Decimal(14, 4)
+  soldAt                 DateTime
+  refundedAt             DateTime?
+  notes                  String?
+  createdAt              DateTime  @default(now())
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  piece   Piece        @relation(fields: [pieceId], references: [id], onDelete: Restrict)
+  buyer   Buyer        @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  channel SalesChannel @relation(fields: [channelId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, soldAt(sort: Desc)])
+  @@index([buyerId, soldAt(sort: Desc)])
+  @@index([channelId, soldAt(sort: Desc)])
+  @@map("sale")
 }

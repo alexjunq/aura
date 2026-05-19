@@ -3,11 +3,18 @@ import { tryGetAuthContext } from '@/shared/auth-context';
 import * as pieces from '@/modules/pieces/service';
 import * as materials from '@/modules/materials/service';
 import * as channelsService from '@/modules/channels/service';
+import * as buyersService from '@/modules/buyers/service';
+import * as sales from '@/modules/sales/service';
+import * as pricing from '@/modules/pricing/service';
+import * as settings from '@/modules/settings/service';
+import { SELLABLE_STATUSES } from '@aura/domain';
 import { PageShell, tableStyle, tdStyle, thStyle } from '@/shared/layout';
 import { TimerControls } from './TimerControls';
 import { AddMaterialForm } from './AddMaterialForm';
 import { StatusActions } from './StatusActions';
 import { ChannelActions } from './ChannelActions';
+import { RecordSaleForm } from './RecordSaleForm';
+import { RefundButton } from './RefundButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +44,11 @@ export default async function PieceDetailPage({ params }: Params) {
     totalSec,
     allMaterials,
     allChannels,
+    allBuyers,
     activeSession,
-    costBase,
+    breakdown,
+    saleHistory,
+    tenantSettings,
   ] = await Promise.all([
     pieces.listMaterials(ctx.tenantId, id),
     pieces.listSessions(ctx.tenantId, id),
@@ -46,13 +56,22 @@ export default async function PieceDetailPage({ params }: Params) {
     pieces.totalSessionSeconds(ctx.tenantId, id),
     materials.list(ctx.tenantId),
     channelsService.list(ctx.tenantId),
+    buyersService.list(ctx.tenantId, { limit: 500 }),
     pieces.activeSession(ctx.tenantId),
-    pieces.materialsCostBase(ctx.tenantId, id),
+    pricing.breakdown(ctx.tenantId, id),
+    sales.list(ctx.tenantId, { pieceId: id, limit: 50 }),
+    settings.getSettings(ctx.tenantId),
   ]);
   const totalHours = (totalSec / 3600).toFixed(2);
 
+  const isSellable = SELLABLE_STATUSES.has(piece.status);
+  const activeSale = saleHistory.find((s) => !s.refundedAt);
+
   return (
-    <PageShell title={piece.title} subtitle={`Status: ${piece.status} · Hours: ${totalHours} · Materials cost: ${costBase} (base)`}>
+    <PageShell
+      title={piece.title}
+      subtitle={`Status: ${piece.status} · Hours: ${totalHours} · Materials cost: ${breakdown.materials.totalBase} (${tenantSettings.baseCurrency})`}
+    >
       <section style={section}>
         <h2 style={h2}>Status</h2>
         <StatusActions piece={piece} />
@@ -73,6 +92,76 @@ export default async function PieceDetailPage({ params }: Params) {
           </div>
         )}
       </section>
+
+      {isSellable && (
+        <section style={section}>
+          <h2 style={h2}>Record sale</h2>
+          <RecordSaleForm
+            pieceId={piece.id}
+            buyers={allBuyers.map((b) => ({ id: b.id, label: b.name }))}
+            channels={allChannels.map((c) => ({ id: c.id, label: `${c.name} (${c.commissionPct}%)` }))}
+            baseCurrency={tenantSettings.baseCurrency}
+          />
+        </section>
+      )}
+
+      <section style={section}>
+        <h2 style={h2}>Cost breakdown ({tenantSettings.baseCurrency})</h2>
+        <p style={{ margin: '0 0 0.5rem', color: '#555' }}>
+          Materials: <strong>{breakdown.materials.totalBase}</strong> · Labor: <strong>{breakdown.labor.totalBase}</strong> ({breakdown.labor.hours} h × {breakdown.labor.hourlyRateBase}) · <strong>Total: {breakdown.totalCostBase}</strong>
+          {breakdown.atCurrentPrices.totalCostBase !== breakdown.totalCostBase && (
+            <>
+              {' '}
+              <span style={{ color: '#888' }}>
+                (at current material prices: {breakdown.atCurrentPrices.totalCostBase})
+              </span>
+            </>
+          )}
+          {breakdown.lastSalePriceBase && (
+            <>
+              {' '}· Sold for <strong>{breakdown.lastSalePriceBase}</strong>
+            </>
+          )}
+        </p>
+      </section>
+
+      {saleHistory.length > 0 && (
+        <section style={section}>
+          <h2 style={h2}>Sales</h2>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Sold at</th>
+                <th style={thStyle}>Price</th>
+                <th style={thStyle}>Channel commission</th>
+                <th style={thStyle}>Net</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {saleHistory.map((s) => (
+                <tr key={s.id}>
+                  <td style={tdStyle}>{new Date(s.soldAt).toLocaleString()}</td>
+                  <td style={tdStyle}>
+                    {s.salePrice} {s.currency}
+                  </td>
+                  <td style={tdStyle}>
+                    {s.commissionAmount} ({s.commissionPctSnapshot}%)
+                  </td>
+                  <td style={tdStyle}>{s.netAmount}</td>
+                  <td style={tdStyle}>
+                    {s.refundedAt ? `refunded ${new Date(s.refundedAt).toLocaleString()}` : 'active'}
+                  </td>
+                  <td style={tdStyle}>
+                    {!s.refundedAt && activeSale?.id === s.id && <RefundButton saleId={s.id} />}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section style={section}>
         <h2 style={h2}>Work timer</h2>
