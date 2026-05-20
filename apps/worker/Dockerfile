@@ -28,7 +28,8 @@ RUN pnpm --filter @aura/worker build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache wget
+# openssl is required at runtime by the Prisma query engine binary on alpine.
+RUN apk add --no-cache wget openssl
 
 COPY --from=builder /repo/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /repo/node_modules ./node_modules
