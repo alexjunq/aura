@@ -70,6 +70,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Same reason as the unit job: pnpm's allowBuilds runs @prisma/client's
+      # postinstall but it can't find packages/db/prisma/schema.prisma from
+      # within the .pnpm store, so the runtime client files don't get emitted.
+      # The tests import `prisma` from @aura/db at module load — without this
+      # step they fail with "@prisma/client did not initialize yet".
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
       - name: Apply migrations
         run: pnpm --filter @aura/db migrate:deploy
 
