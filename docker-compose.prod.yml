@@ -28,8 +28,10 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "5443:443"
+    networks:
+      - auranet
     environment:
       AURA_HOST: ${AURA_HOST:?required}
       AURA_PHOTOS_HOST: ${AURA_PHOTOS_HOST:?required}
@@ -44,6 +46,8 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    networks:
+      - auranet
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
@@ -59,6 +63,8 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
+    networks:
+      - auranet
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:?required}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?required}
@@ -73,6 +79,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    networks:
+      - auranet
     restart: unless-stopped
     env_file: .env
     depends_on:
@@ -89,6 +97,8 @@ services:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
+    networks:
+      - auranet
     restart: unless-stopped
     env_file: .env
     depends_on:
@@ -103,6 +113,8 @@ services:
     build:
       context: ./backup
     restart: unless-stopped
+    networks:
+      - auranet
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER}
@@ -114,6 +126,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+networks: 
+  auranet: 
 
 volumes:
   postgres-data:
