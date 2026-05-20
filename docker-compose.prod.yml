@@ -81,9 +81,9 @@ services:
     # as a fallback so `docker compose build` still works without a
     # registry login (useful during development on the VPS).
     image: ghcr.io/${AURA_IMAGE_REPO:-alexjunq/aura}/web:${AURA_IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+    # build:
+    #   context: .
+    #   dockerfile: apps/web/Dockerfile
     networks:
       - auranet
     restart: unless-stopped
@@ -100,9 +100,9 @@ services:
 
   worker:
     image: ghcr.io/${AURA_IMAGE_REPO:-alexjunq/aura}/worker:${AURA_IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: apps/worker/Dockerfile
+    # build:
+    #   context: .
+    #   dockerfile: apps/worker/Dockerfile
     networks:
       - auranet
     restart: unless-stopped
