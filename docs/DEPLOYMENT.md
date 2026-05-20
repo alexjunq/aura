@@ -109,13 +109,47 @@ caddy proxies the same backend.)
 
 ## Updating
 
+The compose file points `web` and `worker` at images on GitHub Container
+Registry. CI builds and pushes them on every merge to `main` (see
+`.github/workflows/ci.yml`, `publish-images` job). Deploying a new
+version is therefore just:
+
 ```sh
-git pull
-docker compose -f docker-compose.prod.yml build web worker
+# Optional: pin a specific git SHA in .env, e.g. AURA_IMAGE_TAG=sha-3f9a1c2
+# (defaults to `latest`, which always tracks main).
+docker compose -f docker-compose.prod.yml pull web worker
 docker compose -f docker-compose.prod.yml up -d
 # If migrations were added:
 docker compose -f docker-compose.prod.yml exec web \
   node ./node_modules/.pnpm/prisma@*/node_modules/prisma/build/index.js migrate deploy
+```
+
+The `build:` blocks are still in the compose file as a fallback — handy
+when you want to test a change on the VPS before pushing it. To force a
+local build instead of pulling from GHCR:
+
+```sh
+docker compose -f docker-compose.prod.yml build web worker
+docker compose -f docker-compose.prod.yml up -d --no-deps web worker
+```
+
+### Pulling from GHCR for the first time
+
+Public packages need no auth. If you flip the package visibility to
+private (Settings → Packages → ... → Change visibility), the VPS needs
+a one-time login with a PAT that has `read:packages`:
+
+```sh
+echo "<PAT>" | docker login ghcr.io -u <github-username> --password-stdin
+```
+
+### Pinning a specific version
+
+`.env` overrides the image tag for both services:
+
+```env
+AURA_IMAGE_REPO=alexjunq/aura      # leave as-is unless you forked
+AURA_IMAGE_TAG=sha-3f9a1c2         # any tag the publish-images job pushed
 ```
 
 ## Backups
